@@ -46,64 +46,59 @@ void freeImage(struct image *image)
     free(image);
 }
 
-struct image * getRGBImage(FILE *resfptr, char const * name)
+struct image * getRGBImageFromMemory(uint8_t *mem, size_t size)
 {
     struct image *retImage = NULL;
-    size_t file_size;
 
-    FileDesc file = getFileDesc(resfptr, name);
-    if (file != NULL) {
-        uint8_t *pcx_file = getFile(resfptr, file, &file_size);
-        if (pcx_file != NULL) {
-            if (file_size > sizeof(struct h3pcxHeader)) {
-                struct h3pcxHeader *h3pcx = (struct h3pcxHeader *)pcx_file;
-                retImage = (struct image *)malloc(sizeof(struct image));
-                if (retImage != NULL) {
-                    retImage->width = h3pcx->width;
-                    retImage->height = h3pcx->height;
-                    retImage->dataSize = sizeof(PALETTE) * h3pcx->width * h3pcx->height;
-                    retImage->data = (uint8_t *)malloc(retImage->dataSize);
-                    if (retImage->data != NULL) {
-                        if (file_size > sizeof(struct h3pcxHeader) + h3pcx->bitmap_size) {
-                            if (h3pcx->bitmap_size == h3pcx->width * h3pcx->height) {
-                                PALETTE color_palette[256];
-                                struct h3Color_indexed *pcx_palette = (struct h3Color_indexed *)(pcx_file + sizeof(struct h3pcxHeader) + h3pcx->bitmap_size);
-                                for (int i=0; i<256; i++) {
+    uint8_t *pcx_file = mem;
+    if (pcx_file != NULL) {
+        if (size > sizeof(struct h3pcxHeader)) {
+            struct h3pcxHeader *h3pcx = (struct h3pcxHeader *)pcx_file;
+            retImage = (struct image *)malloc(sizeof(struct image));
+            if (retImage != NULL) {
+                retImage->width = h3pcx->width;
+                retImage->height = h3pcx->height;
+                retImage->dataSize = sizeof(PALETTE) * h3pcx->width * h3pcx->height;
+                retImage->data = (uint8_t *)malloc(retImage->dataSize);
+                if (retImage->data != NULL) {
+                    if (size > sizeof(struct h3pcxHeader) + h3pcx->bitmap_size) {
+                        if (h3pcx->bitmap_size == h3pcx->width * h3pcx->height) {
+                            PALETTE color_palette[256];
+                            struct h3Color_indexed *pcx_palette = (struct h3Color_indexed *)(pcx_file + sizeof(struct h3pcxHeader) + h3pcx->bitmap_size);
+                            for (int i=0; i<256; i++) {
 #ifdef FMT_RGBA
-                                    color_palette[i].r = pcx_palette[i].r;
-                                    color_palette[i].g = pcx_palette[i].g;
-                                    color_palette[i].b = pcx_palette[i].b;
-                                    color_palette[i].a = 255;
+                                color_palette[i].r = pcx_palette[i].r;
+                                color_palette[i].g = pcx_palette[i].g;
+                                color_palette[i].b = pcx_palette[i].b;
+                                color_palette[i].a = 255;
 #endif
 #ifdef FMT_RGB
-                                    color_palette[i] = pcx_palette[i];
+                                color_palette[i] = pcx_palette[i];
 #endif
-                                }
-
-                                for (uint32_t i=0; i<h3pcx->width * h3pcx->height; i++) {
-                                    ((PALETTE*)(retImage->data))[i] = color_palette[((uint8_t *)(pcx_file + sizeof(struct h3pcxHeader)))[i]];
-                                }
-                                return retImage;
-                            } else if (h3pcx->bitmap_size == h3pcx->width * h3pcx->height * 3) {
-                                for (uint32_t i=0; i<h3pcx->width * h3pcx->height; i++) {
-                                    ((PALETTE*)(retImage->data))[i].r = ((struct h3pcxColor_bgr *)(pcx_file + sizeof(struct h3pcxHeader)))[i].r;
-                                    ((PALETTE*)(retImage->data))[i].g = ((struct h3pcxColor_bgr *)(pcx_file + sizeof(struct h3pcxHeader)))[i].g;
-                                    ((PALETTE*)(retImage->data))[i].b = ((struct h3pcxColor_bgr *)(pcx_file + sizeof(struct h3pcxHeader)))[i].b;
-#ifdef FMT_RGBA
-                                    ((PALETTE*)(retImage->data))[i].a = 255;
-#endif
-                                }
-                                return retImage;
                             }
+
+                            for (uint32_t i=0; i<h3pcx->width * h3pcx->height; i++) {
+                                ((PALETTE*)(retImage->data))[i] = color_palette[((uint8_t *)(pcx_file + sizeof(struct h3pcxHeader)))[i]];
+                            }
+                            return retImage;
+                        } else if (h3pcx->bitmap_size == h3pcx->width * h3pcx->height * 3) {
+                            for (uint32_t i=0; i<h3pcx->width * h3pcx->height; i++) {
+                                ((PALETTE*)(retImage->data))[i].r = ((struct h3pcxColor_bgr *)(pcx_file + sizeof(struct h3pcxHeader)))[i].r;
+                                ((PALETTE*)(retImage->data))[i].g = ((struct h3pcxColor_bgr *)(pcx_file + sizeof(struct h3pcxHeader)))[i].g;
+                                ((PALETTE*)(retImage->data))[i].b = ((struct h3pcxColor_bgr *)(pcx_file + sizeof(struct h3pcxHeader)))[i].b;
+#ifdef FMT_RGBA
+                                ((PALETTE*)(retImage->data))[i].a = 255;
+#endif
+                            }
+                            return retImage;
                         }
-                        free(retImage->data);
                     }
-                    free(retImage);
+                    free(retImage->data);
                 }
+                free(retImage);
             }
-            free(pcx_file);
         }
-        free(file);
+        free(pcx_file);
     }
 
     return NULL;
@@ -381,7 +376,7 @@ void freeSprite(struct sprite * sprite)
 }
 
 
-struct sprite * getSpriteFromMemory(uint8_t *mem)
+struct sprite * getSpriteFromMemory(uint8_t *mem, size_t size)
 {
     struct sprite *ret = (struct sprite *)malloc(sizeof(struct sprite));
     if (ret == NULL) {

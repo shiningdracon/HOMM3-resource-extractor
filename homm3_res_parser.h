@@ -40,10 +40,11 @@ struct sprite {
 extern "C" {
 #endif
     
-    struct image * getRGBImage(FILE *resfptr, char const * name);
+    //struct image * getRGBImage(FILE *resfptr, char const * name);
+    struct image * getRGBImageFromMemory(uint8_t *mem, size_t size);
     void freeImage(struct image * image);
 
-    struct sprite * getSpriteFromMemory(uint8_t *mem);
+    struct sprite * getSpriteFromMemory(uint8_t *mem, size_t size);
     void freeSprite(struct sprite * sprite);
     
 #ifdef __cplusplus

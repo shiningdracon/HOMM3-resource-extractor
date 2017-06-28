@@ -8,18 +8,20 @@
 #include "homm3_res_parser.h"
 #include "homm3_lod_file.h"
 
-static void openLod(void (^onSuccess)(FILE *resfptr));
+static void openLod(const char *path, void (^onSuccess)(FILE *resfptr));
 void usage();
-void list();
-void extractFile(const char *filename);
-void extractAll();
+void extractFile(const char *lodPath, const char *filename);
+void extractAll(const char *lodPath, const char *filename);
+void extractFileDummy(const char *lodPath, const char *filename);
+void extractAllDummy(const char *lodPath, const char *filename);
+void printFileList(const char *lodPath, const char *filename);
 
 
-static void openLod(void (^onSuccess)(FILE *resfptr))
+static void openLod(const char *path, void (^onSuccess)(FILE *resfptr))
 {
     FILE *resfptr = NULL;
 
-    resfptr = fopen("H3sprite.lod", "r");
+    resfptr = fopen(path, "r");
     if (resfptr != NULL) {
         onSuccess(resfptr);
         fclose(resfptr);
@@ -33,13 +35,6 @@ void usage()
     printf("-l | -f <filename> | -a\n");
 }
 
-void list()
-{
-    openLod(^(FILE *resfptr) {
-        printFileList(resfptr);
-    });
-}
-
 static struct sprite * getSpriteByFileDesc(FILE *resfptr, const FileDesc desc)
 {
     struct sprite * ret = NULL;
@@ -47,22 +42,22 @@ static struct sprite * getSpriteByFileDesc(FILE *resfptr, const FileDesc desc)
 
     ResFile file = getFile(resfptr, desc, &fileSize);
     if (file != NULL) {
-        ret = getSpriteFromMemory(file);
+        ret = getSpriteFromMemory(file, fileSize);
         free(file);
     }
     return ret;
 }
 
-static int extractSprite(FILE *resfptr, const FileDesc file)
+static int extractSprite(FILE *resfptr, const FileDesc desc)
 {
     struct sprite *sprite = NULL;
 
-    sprite = getSpriteByFileDesc(resfptr, file);
+    sprite = getSpriteByFileDesc(resfptr, desc);
     if (sprite != NULL) {
-        if (mkdir(file->name, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) {
+        if (mkdir(desc->name, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) {
             for (int i=0; i<sprite->totalFrames; i++) {
                 char outname[256];
-                snprintf(outname, sizeof(outname), "%s/frame_%02d", file->name, i);
+                snprintf(outname, sizeof(outname), "%s/frame_%02d", desc->name, i);
                 FILE *outimg = fopen(outname, "w");
                 fwrite(sprite->frames[i]->data, 1, sprite->frames[i]->dataSize, outimg);
                 fclose(outimg);
@@ -72,7 +67,7 @@ static int extractSprite(FILE *resfptr, const FileDesc file)
                 system(convert);
             }
         } else {
-            printf("Failed make dir: %s\n", file->name);
+            printf("Failed make dir: %s\n", desc->name);
         }
 
         freeSprite(sprite);
@@ -82,11 +77,11 @@ static int extractSprite(FILE *resfptr, const FileDesc file)
     }
 }
 
-static int extractSpriteDummy(FILE *resfptr, const FileDesc file)
+static int extractSpriteDummy(FILE *resfptr, const FileDesc desc)
 {
     struct sprite *sprite = NULL;
 
-    sprite = getSpriteByFileDesc(resfptr, file);
+    sprite = getSpriteByFileDesc(resfptr, desc);
     if (sprite != NULL) {
         freeSprite(sprite);
         return 0;
@@ -95,13 +90,13 @@ static int extractSpriteDummy(FILE *resfptr, const FileDesc file)
     }
 }
 
-void extractFile(const char *filename)
+void extractFile(const char *lodPath, const char *filename)
 {
-    openLod(^(FILE *resfptr) {
-        forEachFile(resfptr, ^(const FileDesc file) {
-            if (strcasecmp(file->name, filename) == 0) {
-                printf("Extract sprite: %s", file->name);
-                if (extractSprite(resfptr, file) == 0) {
+    openLod(lodPath, ^(FILE *resfptr) {
+        forEachFile(resfptr, ^(const FileDesc desc) {
+            if (strcasecmp(desc->name, filename) == 0) {
+                printf("Extract sprite: %s", desc->name);
+                if (extractSprite(resfptr, desc) == 0) {
                     printf(" ... SUCCESS\n");
                     return SUCCESS;
                 } else {
@@ -115,15 +110,15 @@ void extractFile(const char *filename)
     });
 }
 
-void extractAll()
+void extractAll(const char *lodPath, const char *filename)
 {
-    openLod(^(FILE *resfptr) {
-        forEachFile(resfptr, ^(const FileDesc file) {
-            size_t nameLen = strlen(file->name);
+    openLod(lodPath, ^(FILE *resfptr) {
+        forEachFile(resfptr, ^(const FileDesc desc) {
+            size_t nameLen = strlen(desc->name);
             if (nameLen > 4) {
-                if (strcasecmp(file->name + nameLen - 4, ".def") == 0) {
-                    printf("Extract sprite: %s", file->name);
-                    if (extractSprite(resfptr, file) == 0) {
+                if (strcasecmp(desc->name + nameLen - 4, ".def") == 0) {
+                    printf("Extract sprite: %s", desc->name);
+                    if (extractSprite(resfptr, desc) == 0) {
                         printf(" ... SUCCESS\n");
                     } else {
                         printf(" ... FAILED\n");
@@ -136,13 +131,13 @@ void extractAll()
     });
 }
 
-void extractFileDummy(const char *filename)
+void extractFileDummy(const char *lodPath, const char *filename)
 {
-    openLod(^(FILE *resfptr) {
-        forEachFile(resfptr, ^(const FileDesc file) {
-            if (strcasecmp(file->name, filename) == 0) {
-                printf("Create sprite: %s", file->name);
-                if (extractSpriteDummy(resfptr, file) == 0) {
+    openLod(lodPath, ^(FILE *resfptr) {
+        forEachFile(resfptr, ^(const FileDesc desc) {
+            if (strcasecmp(desc->name, filename) == 0) {
+                printf("Create sprite: %s", desc->name);
+                if (extractSpriteDummy(resfptr, desc) == 0) {
                     printf(" ... SUCCESS\n");
                     return SUCCESS;
                 } else {
@@ -156,15 +151,15 @@ void extractFileDummy(const char *filename)
     });
 }
 
-void extractAllDummy()
+void extractAllDummy(const char *lodPath, const char *filename)
 {
-    openLod(^(FILE *resfptr) {
-        forEachFile(resfptr, ^(const FileDesc file) {
-            size_t nameLen = strlen(file->name);
+    openLod(lodPath, ^(FILE *resfptr) {
+        forEachFile(resfptr, ^(const FileDesc desc) {
+            size_t nameLen = strlen(desc->name);
             if (nameLen > 4) {
-                if (strcasecmp(file->name + nameLen - 4, ".def") == 0) {
-                    printf("Create sprite: %s", file->name);
-                    if (extractSpriteDummy(resfptr, file) == 0) {
+                if (strcasecmp(desc->name + nameLen - 4, ".def") == 0) {
+                    printf("Create sprite: %s", desc->name);
+                    if (extractSpriteDummy(resfptr, desc) == 0) {
                         printf(" ... SUCCESS\n");
                     } else {
                         printf(" ... FAILED\n");
@@ -172,6 +167,16 @@ void extractAllDummy()
                 }
             }
 
+            return NEXT;
+        });
+    });
+}
+
+void printFileList(const char *lodPath, const char *filename)
+{
+    openLod(lodPath, ^(FILE *resfptr) {
+        forEachFile(resfptr, ^(const FileDesc desc) {
+            printf("%s\n", desc->name);
             return NEXT;
         });
     });
@@ -183,28 +188,49 @@ int main(int argc, char * const argv[]) {
         return 0;
     }
 
+    char lodPath[4096];
+    strlcpy(lodPath, "H3sprite.lod", sizeof(lodPath));
+
+    char filename[4096];
+    bzero(filename, sizeof(filename));
+
+    void (*process)(const char *lodPath, const char *filname) = NULL;
+
     int c;
-    while ((c = getopt(argc, argv, "lf:ad:D")) != -1) {
+    while ((c = getopt(argc, argv, "i:lf:ad:D")) != -1) {
         switch (c) {
+            case 'i':
+                strlcpy(lodPath, optarg, sizeof(lodPath));
+                break;
             case 'l':
-                list();
+                process = printFileList;
                 break;
             case 'f':
-                extractFile(optarg);
+                strlcpy(filename, optarg, sizeof(filename));
+                process = extractFile;
                 break;
             case 'a':
-                extractAll();
+                process = extractAll;
                 break;
+            /* for debug */
             case 'd':
-                extractFileDummy(optarg);
+                strlcpy(filename, optarg, sizeof(filename));
+                process = extractFileDummy;
                 break;
             case 'D':
-                extractAllDummy();
+                process = extractAllDummy;
                 break;
+            /* end for debug */
             default:
                 usage();
                 return 0;
         }
+    }
+
+    if (process != NULL) {
+        process(lodPath, filename);
+    } else {
+        usage();
     }
 
     return 0;

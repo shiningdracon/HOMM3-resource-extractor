@@ -109,12 +109,3 @@ FileDesc getFileDesc(FILE *resfptr, const char *name)
         return NULL;
     }
 }
-
-void printFileList(FILE *resfptr)
-{
-    forEachFile(resfptr, ^(const FileDesc f) {
-        struct h3lodFile *file = (struct h3lodFile *)f;
-        printf("%s\n", file->name);
-        return NEXT;
-    });
-}

@@ -3,7 +3,7 @@
 #define __HOMM3Res__homm3_lod_file__
 
 #include <stdio.h>
-
+#include <stdint.h>
 
 typedef enum {
     FAILED = -1,
@@ -20,6 +20,5 @@ typedef uint8_t* ResFile;
 int forEachFile(FILE *resfptr, CALLBACK_RET (^callback)(const FileDesc file));
 FileDesc getFileDesc(FILE *resfptr, const char *name);
 ResFile getFile(FILE *resfptr, const FileDesc file, size_t *retSize);
-void printFileList(FILE *resfptr);
 
 #endif /* defined(__HOMM3Res__homm3_lod_file__) */
