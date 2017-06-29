@@ -38,12 +38,11 @@ void usage()
 static struct sprite * getSpriteByFileDesc(FILE *resfptr, const FileDesc desc)
 {
     struct sprite * ret = NULL;
-    size_t fileSize = 0;
 
-    ResFile file = getFile(resfptr, desc, &fileSize);
+    ResFile file = getFile(resfptr, desc);
     if (file != NULL) {
-        ret = getSpriteFromMemory(file, fileSize);
-        free(file);
+        ret = getSpriteFromMemory(file, desc->size);
+        freeFile(file);
     }
     return ret;
 }

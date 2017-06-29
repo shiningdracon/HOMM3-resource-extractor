@@ -45,7 +45,7 @@ int forEachFile(FILE *resfptr, CALLBACK_RET (^callback)(const FileDesc file))
     return ret;
 }
 
-ResFile getFile(FILE *resfptr, const FileDesc desc, size_t *retSize)
+ResFile getFile(FILE *resfptr, const FileDesc desc)
 {
     size_t size_to_read, size_comp, size_orig;
     struct h3lodFile *file = (struct h3lodFile *)desc;
@@ -72,20 +72,23 @@ ResFile getFile(FILE *resfptr, const FileDesc desc, size_t *retSize)
                     int ret = uncompress(buff_uncompressed, &z_uncompressed_size, data_buff, z_compressed_size);
                     if (ret == Z_OK && z_uncompressed_size == size_orig) {
                         free(data_buff);
-                        *retSize = size_orig;
-                        return buff_uncompressed;
+                        return (ResFile)buff_uncompressed;
                     }
                     free(buff_uncompressed);
                 }
             } else {
-                *retSize = size_orig;
-                return data_buff;
+                return (ResFile)data_buff;
             }
         }
         free(data_buff);
     }
 
     return NULL;
+}
+
+void freeFile(ResFile file)
+{
+    free(file);
 }
 
 FileDesc getFileDesc(FILE *resfptr, const char *name)
@@ -108,4 +111,9 @@ FileDesc getFileDesc(FILE *resfptr, const char *name)
     } else {
         return NULL;
     }
+}
+
+void freeFileDesc(FileDesc desc)
+{
+    free(desc);
 }

@@ -3,7 +3,7 @@
 #define __HOMM3Res__homm3_res_parser__
 
 #include <stdio.h>
-#include "homm3_lod_file.h"
+#include <stdint.h>
 
 struct image {
     uint32_t width;
