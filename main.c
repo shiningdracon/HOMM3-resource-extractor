@@ -74,6 +74,18 @@ static struct sprite * getSpriteByFileDesc(FILE *resfptr, const FileDesc desc)
     return ret;
 }
 
+static struct image * getImageByFileDesc(FILE *resfptr, const FileDesc desc)
+{
+    struct image * ret = NULL;
+
+    ResFile file = getFile(resfptr, desc);
+    if (file != NULL) {
+        ret = getRGBImageFromMemory(file, desc->size);
+        freeFile(file);
+    }
+    return ret;
+}
+
 static int extractSprite(FILE *resfptr, const FileDesc desc)
 {
     struct sprite *sprite = NULL;
@@ -87,9 +99,9 @@ static int extractSprite(FILE *resfptr, const FileDesc desc)
                 FILE *outimg = fopen(outname, "w");
                 fwrite(sprite->frames[i]->data, 1, sprite->frames[i]->dataSize, outimg);
                 fclose(outimg);
+
                 char convert[1024];
                 snprintf(convert, sizeof(convert), "convert -size %dx%d -depth 8 rgba:%s %s.png; rm %s", sprite->frames[i]->imgWidth, sprite->frames[i]->imgHeight, outname, outname, outname);
-                //printf("%s\n", convert);
                 system(convert);
             }
         } else {
@@ -116,19 +128,59 @@ static int extractSpriteDummy(FILE *resfptr, const FileDesc desc)
     }
 }
 
+static int extractImage(FILE *resfptr, const FileDesc desc)
+{
+    struct image *image = NULL;
+
+    image = getImageByFileDesc(resfptr, desc);
+    if (image != NULL) {
+        char outname[256];
+        snprintf(outname, sizeof(outname), "%s", desc->name);
+        FILE *outimg = fopen(outname, "w");
+        fwrite(image->data, 1, image->dataSize, outimg);
+        fclose(outimg);
+        freeImage(image);
+
+        char convert[1024];
+        snprintf(convert, sizeof(convert), "convert -size %dx%d -depth 8 rgba:%s %s.png; rm %s", image->width, image->height, outname, outname, outname);
+        system(convert);
+
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
 void extractFile(const char *lodPath, const char *filename)
 {
     openLod(lodPath, ^(FILE *resfptr) {
         forEachFile(resfptr, ^(const FileDesc desc) {
             if (strcasecmp(desc->name, filename) == 0) {
-                printf("Extract sprite: %s", desc->name);
-                if (extractSprite(resfptr, desc) == 0) {
-                    printf(" ... SUCCESS\n");
-                    return SUCCESS;
-                } else {
-                    printf(" ... FAILED\n");
-                    return FAILED;
+                size_t nameLen = strlen(desc->name);
+                if (nameLen > 4) {
+                    if (strcasecmp(desc->name + nameLen - 4, ".def") == 0) {
+                        printf("Extract sprite: %s", desc->name);
+                        if (extractSprite(resfptr, desc) == 0) {
+                            printf(" ... SUCCESS\n");
+                            return SUCCESS;
+                        } else {
+                            printf(" ... FAILED\n");
+                            return FAILED;
+                        }
+                    } else if (strcasecmp(desc->name + nameLen - 4, ".pcx") == 0) {
+                        printf("Extract image: %s", desc->name);
+                        if (extractImage(resfptr, desc) == 0) {
+                            printf(" ... SUCCESS\n");
+                            return SUCCESS;
+                        } else {
+                            printf(" ... FAILED\n");
+                            return FAILED;
+                        }
+                    } else {
+                        printf("Unsupported file type: %s\n", desc->name + nameLen - 4);
+                    }
                 }
+                return FAILED;
             } else {
                 return NEXT;
             }
@@ -149,6 +201,17 @@ void extractAll(const char *lodPath, const char *filename)
                     } else {
                         printf(" ... FAILED\n");
                     }
+                } else if (strcasecmp(desc->name + nameLen - 4, ".pcx") == 0) {
+                    printf("Extract image: %s", desc->name);
+                    if (extractImage(resfptr, desc) == 0) {
+                        printf(" ... SUCCESS\n");
+                        return SUCCESS;
+                    } else {
+                        printf(" ... FAILED\n");
+                        return FAILED;
+                    }
+                } else {
+                    printf("Unsupported file type: %s\n", desc->name + nameLen - 4);
                 }
             }
 
